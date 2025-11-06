@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MPRSNACKS - Quality Mittai Products & Owner Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        /* Custom styles for professional look and feel */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+        }
+        .mittai-card {
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border-top: 5px solid #ff4500;
+        }
+        .mittai-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .product-image {
+            height: 150px;
+            object-fit: cover;
+            border-radius: 0.5rem;
+        }
+        .quantity-input {
+            width: 70px;
+            text-align: center;
+        }
+        /* Style for custom non-alert message box */
+        #messageBox {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        /* Page control classes */
+        .page-section {
+            display: none;
+        }
+        /* Custom scrollbar for order details */
+        .order-items-scroll {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 0.5rem;
+        }
+        /* Modal backdrop style */
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(5px);
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <div id="messageBox" class="space-y-2"></div>
+    
+    <!-- Owner Login Modal -->
+    <div id="owner-login-modal" class="fixed inset-0 hidden modal-backdrop items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-95 opacity-0" id="login-modal-content">
+            <h3 class="text-3xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center">
+                <i data-lucide="lock" class="w-6 h-6 mr-3 text-orange-600"></i>
+                Owner Access
+            </h3>
+            <p class="text-gray-600 mb-6">Enter the secret password to access the order dashboard.</p>
+
+            <form id="owner-login-form" onsubmit="event.preventDefault(); handleOwnerLogin();" class="space-y-4">
+                <input
+                    type="password"
+                    id="owner-password-input"
+                    placeholder="Enter Password (MPR@snacks)"
+                    required
+                    class="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:ring-orange-500 transition duration-150"
+                >
+                <p id="password-error" class="text-red-600 text-sm font-semibold hidden">Invalid password. Please try again.</p>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="hideOwnerLoginModal()" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition duration-150">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-6 py-2 bg-orange-600 text-white font-semibold rounded-lg shadow-md hover:bg-orange-700 transition duration-150">
+                        Login
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Header -->
+    <header class="bg-orange-600 text-white p-6 shadow-xl sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <!-- Clicking the logo takes you to the Products page now, as that is the core store experience -->
+            <h1 class="text-3xl font-bold tracking-tight cursor-pointer" onclick="showPage('products-page')">MPRSNACKS</h1>
+            <nav class="flex items-center space-x-4">
+                <a href="#" onclick="showPage('products-page')" class="mx-3 hover:text-orange-200 transition duration-150">Products</a>
+                
+                <button 
+                    onclick="showOwnerLoginModal()" 
+                    class="flex items-center bg-yellow-400 text-gray-900 font-semibold px-4 py-2 rounded-full shadow-md hover:bg-yellow-500 transition duration-200 text-sm"
+                >
+                    <i data-lucide="layout-dashboard" class="w-4 h-4 mr-2"></i>
+                    Owner Dashboard
+                </button>
+                <button 
+                    id="view-cart-btn"
+                    onclick="goToCheckout()" 
+                    class="ml-6 flex items-center bg-white text-orange-600 font-semibold px-4 py-2 rounded-full shadow-md hover:bg-orange-50 transition duration-200"
+                >
+                    <i data-lucide="shopping-cart" class="w-5 h-5 mr-2"></i>
+                    View Cart (<span id="cart-count">0</span>)
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <div id="main-content" class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+
+        <!-- 0. WELCOME PAGE (New initial page) -->
+        <section id="welcome-page" class="page-section">
+            <div class="bg-white p-10 lg:p-20 rounded-xl shadow-2xl text-center flex flex-col items-center justify-center min-h-[60vh]">
+                <h2 class="text-7xl font-extrabold text-orange-600 mb-4 tracking-tight">
+                    Welcome to MPRSNACKS
+                </h2>
+                <h3 class="text-3xl font-semibold text-gray-800 mb-12 border-b-2 border-orange-200 pb-3">
+                    Authentic Kovilpatti Mittai, Handcrafted with Tradition.
+                </h3>
+                
+                <button 
+                    onclick="showPage('products-page')" 
+                    class="px-12 py-4 bg-green-600 text-white font-bold text-xl rounded-full shadow-lg hover:bg-green-700 transition duration-200 transform hover:scale-105"
+                >
+                    <i data-lucide="gift" class="w-6 h-6 mr-3 inline"></i>
+                    Shop Now & Explore Our Mittai
+                </button>
+                
+            </div>
+        </section>
+
+
+        <!-- 1. PRODUCTS PAGE -->
+        <section id="products-page" class="page-section">
+            <div class="text-center py-12 bg-gray-50 rounded-xl shadow-inner mb-8">
+                <div class="max-w-4xl mx-auto px-4">
+                    <h2 class="text-5xl font-extrabold text-gray-800 mb-4">Authentic Kovilpatti Mittai</h2>
+                    <p class="text-xl text-gray-600">Select your preferred pack size (Max 50kg per item).</p>
+                </div>
+            </div>
+
+            <div id="product-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Product cards are injected here by renderProducts() -->
+            </div>
+        </section>
+
+        <!-- 2. CHECKOUT PAGE -->
+        <section id="checkout-page" class="page-section">
+            <h2 class="text-4xl font-bold text-gray-800 mb-8 border-b pb-3">Your Order Checkout</h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Cart Summary (Col 1 & 2) -->
+                <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg h-fit">
+                    <h3 class="text-2xl font-semibold text-orange-600 mb-4">Items in Cart</h3>
+                    <div id="cart-items-summary" class="order-items-scroll p-3 bg-gray-50 space-y-3">
+                        <!-- Cart items injected here by renderCheckout() -->
+                    </div>
+
+                    <div class="flex justify-between items-center border-t pt-4 mt-6">
+                        <span class="text-2xl font-bold text-gray-700">TOTAL:</span>
+                        <span id="total-amount-display" class="text-4xl font-extrabold text-orange-600">₹0.00</span>
+                    </div>
+                </div>
+
+                <!-- Customer Details & Order Buttons (Col 3) -->
+                <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-lg h-fit">
+                    <h3 class="text-2xl font-semibold text-gray-800 mb-4">Customer & Delivery Info</h3>
+                    <div id="checkout-details-section" class="space-y-4">
+                        <div>
+                            <label for="customer-name" class="block text-sm font-medium text-gray-700">Name</label>
+                            <input type="text" id="customer-name" required class="w-full p-3 border rounded-lg focus:ring-orange-500 focus:border-orange-500 transition duration-150">
+                        </div>
+                        <div>
+                            <label for="customer-mobile" class="block text-sm font-medium text-gray-700">Mobile (10 Digits)</label>
+                            <input type="tel" id="customer-mobile" required pattern="[0-9]{10}" maxlength="10" class="w-full p-3 border rounded-lg focus:ring-orange-500 focus:border-orange-500 transition duration-150">
+                        </div>
+                        
+                        <!-- NEW: Delivery Address Field -->
+                        <div>
+                            <label for="delivery-address" class="block text-sm font-medium text-gray-700">Delivery Address (Street, City, Pincode)</label>
+                            <textarea id="delivery-address" rows="3" required class="w-full p-3 border rounded-lg focus:ring-orange-500 focus:border-orange-500 transition duration-150 resize-none"></textarea>
+                        </div>
+                        <!-- END NEW -->
+
+                        <h3 class="text-2xl font-semibold text-gray-800 pt-4 mb-4 border-t">Choose Payment Option</h3>
+
+                        <!-- Online Payment Details & Button -->
+                        <div class="p-4 bg-blue-50 border-2 border-blue-200 rounded-lg space-y-2">
+                            <h4 class="font-bold text-blue-800 flex items-center">
+                                <i data-lucide="smartphone" class="w-5 h-5 mr-2"></i> 
+                                UPI/Online Payment (PhonePe / Google Pay)
+                            </h4>
+                            <p class="text-sm text-gray-600">Total amount to pay: <span id="payment-upi-total" class="font-bold text-lg text-orange-600">₹0.00</span></p>
+                            <div class="text-xl font-extrabold text-blue-600 bg-white p-2 rounded-md inline-block shadow-inner space-y-1">
+                                <p>9965425056</p>
+                                <p>6382019812</p>
+                            </div>
+                            <button type="button" onclick="processOrder('ONLINE')" class="w-full py-3 bg-blue-600 text-white font-bold text-lg rounded-lg shadow-xl hover:bg-blue-700 transition duration-200 mt-2">
+                                <i data-lucide="credit-card" class="w-5 h-5 mr-2 inline"></i>
+                                Confirm & Pay Online
+                            </button>
+                        </div>
+
+                        <!-- COD Button -->
+                        <div class="pt-4">
+                            <button type="button" onclick="processOrder('COD')" class="w-full py-3 bg-green-600 text-white font-bold text-lg rounded-lg shadow-xl hover:bg-green-700 transition duration-200">
+                                <i data-lucide="package" class="w-5 h-5 mr-2 inline"></i>
+                                Cash On Delivery (COD)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. OWNER DASHBOARD PAGE -->
+        <section id="owner-dashboard-page" class="page-section">
+            <div class="bg-white p-8 rounded-xl shadow-xl">
+                <h2 class="text-4xl font-bold text-gray-800 mb-6 flex items-center border-b pb-3">
+                    <i data-lucide="activity" class="w-8 h-8 mr-3 text-orange-600"></i>
+                    MPRSNACKS Sales Dashboard
+                </h2>
+
+                <!-- Key Metrics -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" id="dashboard-metrics">
+                    <div class="p-5 bg-blue-50 rounded-xl border border-blue-200 shadow-md">
+                        <p class="text-sm font-medium text-blue-600">Total Sales (₹)</p>
+                        <p class="text-3xl font-bold text-blue-800 mt-1" id="metric-sales">₹0.00</p>
+                    </div>
+                    <div class="p-5 bg-green-50 rounded-xl border border-green-200 shadow-md">
+                        <p class="text-sm font-medium text-green-600">Orders Processed</p>
+                        <p class="text-3xl font-bold text-green-800 mt-1" id="metric-orders">0</p>
+                    </div>
+                    <div class="p-5 bg-yellow-50 rounded-xl border border-yellow-200 shadow-md">
+                        <p class="text-sm font-medium text-yellow-600">Total Kg Sold</p>
+                        <p class="text-3xl font-bold text-yellow-800 mt-1" id="metric-kg">0.0 kg</p>
+                    </div>
+                    <div class="p-5 bg-pink-50 rounded-xl border border-pink-200 shadow-md">
+                        <p class="text-sm font-medium text-pink-600">Avg Order Value</p>
+                        <p class="text-3xl font-bold text-pink-800 mt-1" id="metric-avg">₹0.00</p>
+                    </div>
+                </div>
+
+                <!-- Recent Orders Table -->
+                <h3 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">Recent Orders (Mock Data)</h3>
+                <div class="overflow-x-auto bg-gray-50 rounded-lg shadow-inner p-4">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total (₹)</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-table-body" class="bg-white divide-y divide-gray-200">
+                            <!-- Order rows injected by initDashboard() -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-12 bg-gray-800 text-white py-6">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <p>&copy; 2024 MPRSNACKS. All rights reserved. Taste the Kovilpatti tradition.</p>
+        </div>
+    </footer>
+
+
+    <script>
+        // --- CONFIGURATION & DATA ---
+
+        const OWNER_PASSWORD = "MPR@snacks";
+        const MAX_WEIGHT_GRAMS = 50000; // 50 kg limit
+        // Owner's mobile numbers (with country code '91') for order notifications and UPI payment display
+        const OWNER_MOBILES_WHATSAPP = ["919965425056", "916382019812"]; 
+
+        // Pack sizes and prices
+        const VARIANTS = [
+            { id: 100, label: "100g Pack", sizeGrams: 100, price: 25.00 },
+            { id: 200, label: "200g Pack", sizeGrams: 200, price: 40.00 },
+            { id: 1000, label: "1 Kg Pack", sizeGrams: 1000, price: 200.00 }, // 1kg
+        ];
+        
+        // Product list with updated, distinct placeholder images
+        const PRODUCTS = [
+            { id: 1, name: "Groundnut Burfi (Kadalai Mittai)", img: "https://placehold.co/300x150/8B4513/FFFFFF?text=Crispy+Kadalai+Mittai" }, // Nutty brown
+            { id: 2, name: "Coconut Mittai (Koko Mittai)", img: "https://placehold.co/300x150/F5F5F5/333333?text=Flaky+Coconut+Mittai" }, // Off-white/flaky look
+            { id: 3, name: "Ellu Urundai (Sesame Ball)", img: "https://placehold.co/300x150/333333/ffffff?text=Traditional+Ellu+Urundai" }, // Darker color
+        ];
+        
+        let isOwnerLoggedIn = false;
+        
+        // Mock data storage for the dashboard
+        let salesData = JSON.parse(localStorage.getItem('mprsnacksSales')) || [];
+
+        // --- UTILITY FUNCTIONS ---
+
+        /** Shows a temporary success or error message box. */
+        function showMessage(type, message) {
+            const box = document.createElement('div');
+            const color = type === 'success' ? 'bg-green-100 border-green-500 text-green-700' : 'bg-red-100 border-red-500 text-red-700';
+            
+            box.className = `p-4 border-l-4 rounded-lg shadow-lg ${color} transition-opacity duration-300`;
+            box.innerHTML = `<p class="font-semibold">${message}</p>`;
+
+            document.getElementById('messageBox').appendChild(box);
+
+            setTimeout(() => {
+                box.classList.add('opacity-0');
+                box.addEventListener('transitionend', () => box.remove());
+            }, 5000); // Increased duration for important messages
+        }
+
+        /** Loads cart data from local storage. Cart keys are PACK IDs (e.g., "1-100"). */
+        function loadCart() {
+            try {
+                return JSON.parse(localStorage.getItem('mprsnacksCart')) || {};
+            } catch (e) {
+                console.error("Could not load cart from localStorage", e);
+                return {};
+            }
+        }
+
+        /** Saves cart data to local storage. */
+        function saveCart(cart) {
+            try {
+                localStorage.setItem('mprsnacksCart', JSON.stringify(cart));
+                updateCartUI();
+            } catch (e) {
+                console.error("Could not save cart to localStorage", e);
+            }
+        }
+
+        /** Calculates the total price of the current cart. */
+        function calculateTotal(cart) {
+            return Object.values(cart).reduce((total, item) => total + (item.price * item.quantity), 0);
+        }
+        
+        /** Clears the cart. */
+        function clearCart() {
+            localStorage.removeItem('mprsnacksCart');
+            updateCartUI();
+        }
+
+        /** Calculates the total weight of a specific base product (ID) currently in the cart. */
+        function getCartWeight(productId) {
+            const cart = loadCart();
+            let totalWeight = 0;
+            
+            // Iterate through all items in the cart
+            for (const packKey in cart) {
+                const item = cart[packKey];
+                // Check if the pack belongs to the specified base product
+                if (item.productId === productId) {
+                    totalWeight += item.sizeGrams * item.quantity;
+                }
+            }
+            return totalWeight; // weight in grams
+        }
+
+        /** Finds variant details by its ID. */
+        function getVariantById(variantId) {
+            return VARIANTS.find(v => v.id === variantId);
+        }
+
+        // --- NAVIGATION & UI UPDATES ---
+        
+        /** Shows a specific page section. */
+        function showPage(pageId) {
+            document.querySelectorAll('.page-section').forEach(section => {
+                section.style.display = 'none';
+            });
+            const target = document.getElementById(pageId);
+            if (target) {
+                target.style.display = 'block';
+            }
+            
+            // Re-render Lucide icons for the new page content
+            if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                lucide.createIcons();
+            }
+        }
+
+        /** Updates the cart count in the header (now counts total packs). */
+        function updateCartUI() {
+            const cart = loadCart();
+            const count = Object.values(cart).reduce((sum, item) => sum + item.quantity, 0);
+            document.getElementById('cart-count').textContent = count;
+            
+            const btn = document.getElementById('view-cart-btn');
+            if (btn) {
+                if (count > 0) {
+                    btn.classList.add('animate-pulse');
+                } else {
+                    btn.classList.remove('animate-pulse');
+                }
+            }
+        }
+
+        /** Renders product cards on the products page with variant selection. */
+        function renderProducts() {
+            const productList = document.getElementById('product-list');
+            if (!productList) return;
+            
+            const variantOptions = VARIANTS.map(v => 
+                `<option value="${v.id}">₹${v.price.toFixed(2)} - ${v.label}</option>`
+            ).join('');
+
+            productList.innerHTML = PRODUCTS.map(p => `
+                <div class="bg-white p-5 rounded-xl mittai-card flex flex-col justify-between">
+                    <img src="${p.img}" alt="${p.name}" class="product-image w-full mb-4 object-cover">
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">${p.name}</h3>
+                        <div class="mb-4">
+                            <label for="variant-${p.id}" class="block text-sm font-medium text-gray-700 mb-1">Select Pack Size:</label>
+                            <select id="variant-${p.id}" class="w-full p-2 border rounded-lg bg-gray-50 focus:ring-orange-500 focus:border-orange-500">
+                                ${variantOptions}
+                            </select>
+                        </div>
+                    </div>
+                    <button 
+                        onclick="addToCart(${p.id})" 
+                        class="mt-4 w-full py-2 bg-green-600 text-white font-semibold rounded-lg shadow-lg hover:bg-green-700 transition duration-150 flex items-center justify-center"
+                    >
+                        <i data-lucide="plus-circle" class="w-5 h-5 mr-2"></i>
+                        Add 1 Pack to Cart
+                    </button>
+                </div>
+            `).join('');
+            
+            // Render Lucide icons for products
+            if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                lucide.createIcons();
+            }
+        }
+
+        /** Switches to the checkout page and renders the current cart. */
+        function goToCheckout() {
+            const cart = loadCart();
+            if (Object.keys(cart).length === 0) {
+                showMessage('error', 'Your cart is empty. Please add some snacks!');
+                return;
+            }
+            showPage('checkout-page');
+            renderCheckout();
+        }
+        
+        /** Renders the cart items on the checkout page and updates totals. */
+        function renderCheckout() {
+            const cart = loadCart();
+            const summaryEl = document.getElementById('cart-items-summary');
+            const totalEl = document.getElementById('total-amount-display');
+            const upiTotalEl = document.getElementById('payment-upi-total');
+
+            if (!summaryEl || !totalEl || !upiTotalEl) return;
+            
+            summaryEl.innerHTML = '';
+            const totalAmount = calculateTotal(cart);
+            
+            if (Object.keys(cart).length === 0) {
+                summaryEl.innerHTML = '<p class="text-center text-gray-500 py-4">Cart is empty. Go back to products.</p>';
+                totalEl.textContent = '₹0.00';
+                upiTotalEl.textContent = '₹0.00';
+                return;
+            }
+
+            let summaryHTML = Object.values(cart).map(item => `
+                <div class="flex items-center justify-between border-b last:border-b-0 py-2">
+                    <div class="flex-grow">
+                        <p class="font-semibold text-gray-800">${item.productName}</p>
+                        <p class="text-sm text-gray-500">${item.label} (₹${item.price.toFixed(2)} per pack)</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="updateQuantity('${item.packKey}', -1)" class="w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600">-</button>
+                        <span class="quantity-input font-bold text-lg">${item.quantity}</span>
+                        <button onclick="updateQuantity('${item.packKey}', 1)" class="w-6 h-6 bg-green-500 text-white rounded-full text-xs hover:bg-green-600">+</button>
+                    </div>
+                    <span class="font-bold text-xl ml-4 w-24 text-right">₹${(item.price * item.quantity).toFixed(2)}</span>
+                </div>
+            `).join('');
+
+            summaryEl.innerHTML = summaryHTML;
+            totalEl.textContent = `₹${totalAmount.toFixed(2)}`;
+            upiTotalEl.textContent = `₹${totalAmount.toFixed(2)}`;
+        }
+
+
+        // --- CART MANAGEMENT LOGIC ---
+
+        /** Adds a pack of a product variant to the cart. */
+        function addToCart(productId, packsToAdd = 1) {
+            const cart = loadCart();
+            const product = PRODUCTS.find(p => p.id === productId);
+            const variantId = parseInt(document.getElementById(`variant-${productId}`).value);
+            const variant = getVariantById(variantId);
+
+            if (!product || !variant) {
+                showMessage('error', 'Product or pack size selection error.');
+                return;
+            }
+            
+            const packKey = `${productId}-${variantId}`; // Unique key for cart item
+
+            // 1. Check max weight limit (50kg = 50,000g)
+            const currentWeight = getCartWeight(productId);
+            const weightToAdd = variant.sizeGrams * packsToAdd;
+            const newTotalWeight = currentWeight + weightToAdd;
+
+            if (newTotalWeight > MAX_WEIGHT_GRAMS) {
+                const availableWeight = (MAX_WEIGHT_GRAMS - currentWeight) / 1000;
+                showMessage('error', `Maximum limit of 50kg reached for ${product.name}. You can only add ${availableWeight.toFixed(1)}kg more.`);
+                return;
+            }
+
+            // 2. Add or increment item
+            if (cart[packKey]) {
+                cart[packKey].quantity += packsToAdd;
+            } else {
+                cart[packKey] = {
+                    packKey: packKey,
+                    productId: productId,
+                    productName: product.name,
+                    variantId: variantId,
+                    label: variant.label,
+                    sizeGrams: variant.sizeGrams,
+                    price: variant.price,
+                    quantity: packsToAdd // quantity is now number of packs
+                };
+            }
+
+            saveCart(cart);
+            showMessage('success', `Added ${packsToAdd} x ${variant.label} of ${product.name} to cart.`);
+        }
+
+        /** Updates the quantity of a specific pack type in the cart. */
+        function updateQuantity(packKey, delta) {
+            const cart = loadCart();
+            if (!cart[packKey]) return;
+
+            const item = cart[packKey];
+            const product = PRODUCTS.find(p => p.id === item.productId);
+            
+            const newQuantity = item.quantity + delta;
+
+            if (newQuantity <= 0) {
+                // If quantity drops to zero or below, remove item
+                delete cart[packKey];
+                showMessage('success', 'Pack removed from cart.');
+            } else {
+                // Check weight limit on increment only
+                if (delta > 0) {
+                    const currentWeightOfProduct = getCartWeight(item.productId);
+                    // Temporarily subtract item's current weight, then check new total including the new increment
+                    const weightExcludingThisItem = currentWeightOfProduct - (item.sizeGrams * item.quantity);
+                    const weightIfIncremented = weightExcludingThisItem + (item.sizeGrams * newQuantity);
+
+                    if (weightIfIncremented > MAX_WEIGHT_GRAMS) {
+                        showMessage('error', `Cannot add more packs. The total weight for ${product.name} would exceed the 50kg limit.`);
+                        return;
+                    }
+                }
+                
+                // Update quantity if checks pass
+                item.quantity = newQuantity;
+                showMessage('success', 'Cart quantity updated.');
+            }
+
+            saveCart(cart);
+            if (document.getElementById('checkout-page').style.display === 'block') {
+                renderCheckout(); // Re-render checkout page if currently visible
+            }
+        }
+
+        /** Handles the final order submission based on payment type. */
+        function processOrder(paymentType) {
+            const cart = loadCart();
+            const name = document.getElementById('customer-name').value.trim();
+            const mobile = document.getElementById('customer-mobile').value.trim();
+            const address = document.getElementById('delivery-address').value.trim(); // Get the new address
+            const total = calculateTotal(cart);
+
+            if (Object.keys(cart).length === 0) {
+                showMessage('error', 'Order submission failed: Your cart is empty.');
+                return;
+            }
+            
+            // Updated validation to check for address
+            if (name === "" || mobile.length !== 10 || address === "") {
+                showMessage('error', 'Order submission failed: Please enter a valid name, 10-digit mobile number, and **delivery address**.');
+                return;
+            }
+
+            // 1. Calculate total KG sold for this order
+            const totalGrams = Object.values(cart).reduce((sum, item) => sum + (item.sizeGrams * item.quantity), 0);
+            const totalKg = totalGrams / 1000;
+            
+            let paymentMessage = "";
+            let paymentStatus = paymentType === 'COD' ? 'Pending (COD)' : 'Pending (Online)';
+            const upiNumbers = OWNER_MOBILES_WHATSAPP.map(n => n.substring(2)).join(' or '); // Get 10-digit numbers for display
+
+            if (paymentType === 'COD') {
+                paymentMessage = `Order placed successfully! Total: ₹${total.toFixed(2)}. Please keep cash ready for **Cash On Delivery** payment.`;
+            } else {
+                paymentMessage = `Order placed successfully! Total: ₹${total.toFixed(2)}. Please ensure you send the UPI payment to **${upiNumbers}**.`;
+            }
+
+            // 2. Save the order to mock sales data
+            const orderDetails = {
+                id: Date.now(),
+                customerName: name,
+                customerMobile: mobile,
+                customerAddress: address, // Save the customer address
+                totalAmount: total,
+                totalKg: totalKg,
+                paymentMethod: paymentType, // Store selected method
+                paymentStatus: paymentStatus, // Initial status
+                items: Object.values(cart),
+                date: new Date().toLocaleDateString('en-IN', { dateStyle: 'short' }),
+            };
+            
+            salesData.push(orderDetails);
+            localStorage.setItem('mprsnacksSales', JSON.stringify(salesData));
+
+            // 3. Owner Notification via WhatsApp (Deep Link) - Notifying BOTH numbers
+            const orderSummary = orderDetails.items.map(item => 
+                `${item.quantity}x ${item.label} ${item.productName}`
+            ).join('\n');
+            
+            // Updated WhatsApp message to include address
+            const whatsappMessage = 
+                `*🚨 NEW MPRSNACKS ORDER ALERT! 🚨*\n\n` +
+                `*Customer:* ${name}\n` +
+                `*Mobile:* ${mobile}\n` +
+                `*Address:* ${address}\n` + // Include address here
+                `*Total:* ₹${total.toFixed(2)}\n` +
+                `*Payment:* ${paymentType} (${paymentStatus})\n` +
+                `*Total Weight:* ${totalKg.toFixed(1)} kg\n\n` +
+                `*Items:*\n${orderSummary}`;
+
+            const encodedMessage = encodeURIComponent(whatsappMessage);
+            
+            let notifiedCount = 0;
+            OWNER_MOBILES_WHATSAPP.forEach(mobileNumber => {
+                const whatsappURL = `https://api.whatsapp.com/send?phone=${mobileNumber}&text=${encodedMessage}`;
+                // Attempt to open WhatsApp chat for each number
+                window.open(whatsappURL, '_blank');
+                notifiedCount++;
+            });
+
+            // 4. Clear the cart and provide confirmation
+            clearCart();
+            
+            showMessage('success', paymentMessage);
+            showMessage('success', `The owner(s) (${notifiedCount} numbers) have been notified via WhatsApp with the order details.`);
+
+            // Reset customer inputs
+            document.getElementById('customer-name').value = '';
+            document.getElementById('customer-mobile').value = '';
+            document.getElementById('delivery-address').value = ''; // Reset address field
+            
+            showPage('products-page'); // Return to product page after ordering
+        }
+        
+        // --- OWNER DASHBOARD LOGIC ---
+        
+        /** Shows the owner login modal. */
+        function showOwnerLoginModal() {
+            const modal = document.getElementById('owner-login-modal');
+            const content = document.getElementById('login-modal-content');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            // Trigger animation
+            setTimeout(() => {
+                content.classList.remove('opacity-0', 'scale-95');
+                content.classList.add('opacity-100', 'scale-100');
+            }, 10);
+        }
+
+        /** Hides the owner login modal. */
+        function hideOwnerLoginModal() {
+            const modal = document.getElementById('owner-login-modal');
+            const content = document.getElementById('login-modal-content');
+            
+            content.classList.remove('opacity-100', 'scale-100');
+            content.classList.add('opacity-0', 'scale-95');
+            
+            // Hide after animation
+            setTimeout(() => {
+                modal.classList.remove('flex');
+                modal.classList.add('hidden');
+                document.getElementById('password-error').classList.add('hidden');
+                document.getElementById('owner-login-form').reset();
+            }, 300);
+        }
+
+        /** Handles owner login submission. */
+        function handleOwnerLogin() {
+            const input = document.getElementById('owner-password-input').value;
+            const errorEl = document.getElementById('password-error');
+
+            if (input === OWNER_PASSWORD) {
+                isOwnerLoggedIn = true;
+                hideOwnerLoginModal();
+                showPage('owner-dashboard-page');
+                initDashboard();
+                showMessage('success', 'Welcome back, Owner! Dashboard loaded.');
+            } else {
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        /** Initializes the dashboard metrics and table. */
+        function initDashboard() {
+            if (!isOwnerLoggedIn) return;
+            
+            const totalSales = salesData.reduce((sum, order) => sum + order.totalAmount, 0);
+            const totalOrders = salesData.length;
+            
+            // Use the pre-calculated totalKg stored in the sales data
+            const totalKgSold = salesData.reduce((sum, order) => sum + (order.totalKg || 0), 0);
+            
+            const avgOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
+
+            // Update Metrics
+            document.getElementById('metric-sales').textContent = `₹${totalSales.toFixed(2)}`;
+            document.getElementById('metric-orders').textContent = totalOrders;
+            document.getElementById('metric-kg').textContent = `${totalKgSold.toFixed(1)} kg`;
+            document.getElementById('metric-avg').textContent = `₹${avgOrderValue.toFixed(2)}`;
+
+            // Update Orders Table
+            const tableBody = document.getElementById('orders-table-body');
+            if (!tableBody) return;
+            
+            tableBody.innerHTML = salesData.slice(-5).reverse().map(order => `
+                <tr class="hover:bg-gray-50 transition duration-100">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${order.id.toString().slice(-4)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${order.customerName}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">₹${order.totalAmount.toFixed(2)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-xs">
+                        <span class="font-semibold px-2 py-1 inline-flex leading-5 rounded-full ${order.paymentMethod === 'COD' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}">
+                            ${order.paymentMethod}
+                        </span>
+                        <p class="text-gray-400 text-xs mt-1">${order.paymentStatus}</p>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${order.date}</td>
+                </tr>
+            `).join('');
+        }
+        
+        // --- GLOBAL INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. Initial page load is now the Welcome Page
+            showPage('welcome-page');
+            
+            // 2. Render all product cards
+            renderProducts();
+            
+            // 3. Update cart count from localStorage
+            updateCartUI(); 
+            
+            // 4. Render Lucide icons on initial load
+            if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                lucide.createIcons();
+            } else {
+                console.error("Lucide failed to load or initialize.");
+            }
+        });
+    </script>
+</body>
+</html>
